@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>迷雾棋盘·真相探员 | 虚假信息识别闯关游戏</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            background: radial-gradient(circle at 20% 30%, #0a1c24, #030a0f);
+            font-family: 'Segoe UI', 'Poppins', 'Fredoka One', 'Comic Neue', sans-serif;
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+        #fogCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+            opacity: 0.6;
+            mix-blend-mode: screen;
+        }
+        #spotlight {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 15;
+            background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), transparent 0%, rgba(0,0,0,0.75) 70%);
+            transition: background 0.05s ease;
+        }
+        .start-screen, .end-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 30% 40%, #0b2b2f, #021016);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+            backdrop-filter: blur(6px);
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+        .start-screen.hide, .end-screen.hide {
+            opacity: 0;
+            visibility: hidden;
+        }
+        .start-card, .end-card {
+            max-width: 480px;
+            width: 85%;
+            background: rgba(10,20,28,0.85);
+            backdrop-filter: blur(12px);
+            border-radius: 64px;
+            padding: 32px 28px 48px;
+            text-align: center;
+            box-shadow: 0 30px 50px rgba(0,0,0,0.7), 0 0 0 2px rgba(80,140,180,0.4);
+            animation: floatGlow 0.8s ease-out;
+            border: 1px solid rgba(100,180,220,0.5);
+        }
+        @keyframes floatGlow {
+            0% { transform: scale(0.95); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        /* 终点星光闪烁动画 */
+        @keyframes starGlow {
+            0% { box-shadow: 0 0 0 0 #ffd966; background: #ffdf80; }
+            100% { box-shadow: 0 0 20px 12px #ffb347; background: #ffeaac; }
+        }
+        .end-card-glow {
+            animation: starGlow 0.8s ease-in-out 3;
+        }
+        .start-avatar, .end-avatar {
+            width: 110px;
+            height: 110px;
+            background: linear-gradient(145deg, #2f6c7a, #1a4752);
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4rem;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+            overflow: hidden;
+            border: 2px solid #7ab3cc;
+        }
+        .start-avatar img, .end-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .start-title, .end-title {
+            font-size: 2.2rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #cceeff, #88ccff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 12px;
+        }
+        .start-sub, .end-sub {
+            font-size: 1rem;
+            color: #b8dfef;
+            background: rgba(0,0,0,0.4);
+            display: inline-block;
+            padding: 6px 18px;
+            border-radius: 60px;
+            margin-bottom: 28px;
+        }
+        .start-btn, .end-btn {
+            background: linear-gradient(145deg, #2f7a6e, #1e5548);
+            border: none;
+            padding: 14px 38px;
+            font-size: 1.6rem;
+            font-weight: bold;
+            border-radius: 100px;
+            color: #f0f9ff;
+            cursor: pointer;
+            box-shadow: 0 10px 0 #0f3a2e;
+            transition: 0.08s linear;
+            margin-top: 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            border: 1px solid #7bc4b0;
+        }
+        .start-btn:active, .end-btn:active { transform: translateY(5px); box-shadow: 0 5px 0 #0f3a2e; }
+        .end-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .end-btn.small {
+            padding: 10px 24px;
+            font-size: 1.1rem;
+            gap: 8px;
+        }
+        .end-score {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #ffeaac;
+            background: rgba(0,0,0,0.5);
+            display: inline-block;
+            padding: 8px 24px;
+            border-radius: 60px;
+            margin: 15px 0;
+        }
+        .end-message {
+            font-size: 1rem;
+            color: #e6f7ff;
+            background: rgba(0,0,0,0.4);
+            padding: 12px;
+            border-radius: 40px;
+            margin-bottom: 20px;
+            line-height: 1.4;
+        }
+        .start-footer {
+            margin-top: 36px;
+            font-size: 0.75rem;
+            color: #7f9fb0;
+            position: relative;
+            z-index: 5;
+        }
+        .game-container {
+            position: relative;
+            z-index: 20;
+            max-width: 620px;
+            width: 100%;
+            background: rgba(8,20,26,0.7);
+            backdrop-filter: blur(8px);
+            border-radius: 64px;
+            box-shadow: 0 20px 35px rgba(0,0,0,0.6);
+            overflow: hidden;
+            padding: 22px 20px 28px;
+            border: 1px solid rgba(80,150,180,0.5);
+            opacity: 0;
+            visibility: hidden;
+            transform: scale(0.96);
+            transition: opacity 0.4s ease, transform 0.4s ease, visibility 0.4s;
+        }
+        .game-container.visible {
+            opacity: 1;
+            visibility: visible;
+            transform: scale(1);
+        }
+        .stats-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(8px);
+            padding: 10px 18px;
+            border-radius: 60px;
+            color: #cdedff;
+            margin-bottom: 24px;
+            border-bottom: 1px solid #2f6f8a;
+        }
+        .score-box, .rank-box {
+            background: rgba(0,0,0,0.6);
+            padding: 6px 18px;
+            border-radius: 40px;
+            color: #e2f0ff;
+            font-weight: bold;
+            font-size: 0.95rem;
+            border-left: 2px solid #3d9ec0;
+        }
+        .item-count {
+            background: #142e38;
+            padding: 5px 14px;
+            border-radius: 40px;
+            display: flex;
+            gap: 10px;
+        }
+        .perspective-btn {
+            background: #2e6a5c;
+            padding: 5px 14px;
+            border-radius: 40px;
+            cursor: pointer;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border-bottom: 2px solid #1c4a3f;
+        }
+        .perspective-btn.disabled {
+            background: #3f5f58;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        .board {
+            margin-bottom: 20px;
+        }
+        .board-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .level-card {
+            background: rgba(15,30,38,0.8);
+            backdrop-filter: blur(8px);
+            border-radius: 24px;
+            padding: 12px 8px;
+            text-align: center;
+            border: 1px solid #2f6f8a;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .level-card.foggy {
+            background: #1c3e48;
+            background-image: radial-gradient(circle at 30% 35%, rgba(130,200,230,0.3) 2%, transparent 2.5%);
+            color: #8ab3c2;
+        }
+        .level-card.lit {
+            background: #3c7a6b;
+            border-color: #ffdd88;
+            box-shadow: 0 0 8px rgba(255,221,136,0.3);
+        }
+        .level-card.start, .level-card.end {
+            background: linear-gradient(145deg, #2f6b5c, #1e4f42);
+            border-color: #7bc4b0;
+            cursor: default;
+        }
+        .level-card.end {
+            background: linear-gradient(145deg, #7a5c3a, #5c4022);
+        }
+        .level-title {
+            font-size: 0.85rem;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+        .level-status {
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            border-radius: 20px;
+            display: inline-block;
+            background: rgba(0,0,0,0.4);
+        }
+        .level-status.completed {
+            background: #2e6a5c;
+            color: #ddf4ff;
+        }
+        .level-status.pending {
+            background: #5f4a2e;
+            color: #ffcf9a;
+        }
+        .progress-bar {
+            background: #0a1c24;
+            border-radius: 30px;
+            padding: 4px;
+            margin-top: 8px;
+        }
+        .progress-fill {
+            background: #3c7a6b;
+            height: 10px;
+            border-radius: 30px;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .progress-text {
+            text-align: center;
+            font-size: 0.7rem;
+            margin-top: 8px;
+            color: #bbd4e6;
+        }
+        .question-panel {
+            display: none;
+        }
+        .question-panel.active {
+            display: block;
+        }
+        .character {
+            background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(8px);
+            border-radius: 56px;
+            padding: 12px 20px;
+            margin: 12px 0 20px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            border: 1px solid #2f6f8a;
+        }
+        .avatar {
+            background: linear-gradient(145deg, #3e7785, #255c68);
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem;
+            overflow: hidden;
+            cursor: pointer;
+            border: 2px solid #7ab3cc;
+        }
+        .avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .dialogue {
+            flex: 1;
+            font-weight: 500;
+            color: #e6f7ff;
+            background: rgba(0,0,0,0.6);
+            padding: 12px 18px;
+            border-radius: 48px;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            position: relative;
+        }
+        .dialogue::before {
+            content: '';
+            position: absolute;
+            left: -12px;
+            top: 20px;
+            width: 0;
+            height: 0;
+            border: 10px solid transparent;
+            border-right-color: rgba(0,0,0,0.6);
+        }
+        .question-card {
+            background: rgba(15,30,38,0.8);
+            backdrop-filter: blur(8px);
+            border-radius: 56px;
+            padding: 22px 20px;
+            margin: 12px 0 18px;
+            border: 1px solid #2f6f8a;
+        }
+        .media-container {
+            width: 100%;
+            margin-bottom: 16px;
+            background: #0a1c22;
+            border-radius: 32px;
+            overflow: hidden;
+            position: relative;
+        }
+        .carousel-main {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .carousel-img { width: 100%; display: block; }
+        .carousel-img img { width: 100%; height: auto; border-radius: 28px; display: block; }
+        .carousel-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0,0,0,0.6);
+            color: white;
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            font-size: 1.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+            z-index: 5;
+        }
+        .carousel-btn.prev { left: 8px; }
+        .carousel-btn.next { right: 8px; }
+        .carousel-dots {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            padding: 8px 0;
+        }
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #8ab3c2;
+            cursor: pointer;
+        }
+        .dot.active {
+            background: #ffdd88;
+            transform: scale(1.2);
+        }
+        .question-text {
+            font-size: 1rem;
+            line-height: 1.45;
+            background: rgba(0,0,0,0.5);
+            padding: 18px;
+            border-radius: 48px;
+            font-weight: 600;
+            margin-bottom: 24px;
+            border-left: 6px solid #5db0c0;
+            color: #eaf4ff;
+        }
+        .options {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin: 15px 0 10px;
+        }
+        .option-btn {
+            background: linear-gradient(145deg, #1e4652, #12323c);
+            border: none;
+            padding: 14px 28px;
+            border-radius: 60px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            box-shadow: 0 5px 0 #08222b;
+            flex: 1;
+            text-align: center;
+            color: #e0f0fa;
+            border: 1px solid #3f8aa0;
+        }
+        .option-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #08222b; }
+        .hidden { display: none; }
+        footer {
+            font-size: 0.7rem;
+            text-align: center;
+            margin-top: 18px;
+            color: #7f9fb0;
+            background: rgba(0,0,0,0.4);
+            padding: 6px;
+            border-radius: 60px;
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(12px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 4000;
+            visibility: hidden;
+            opacity: 0;
+            transition: 0.2s ease;
+        }
+        .modal-overlay.active { visibility: visible; opacity: 1; }
+        .feedback-modal {
+            max-width: 380px;
+            width: 88%;
+            background: #10262ed9;
+            backdrop-filter: blur(12px);
+            border-radius: 64px;
+            padding: 22px;
+            text-align: center;
+            box-shadow: 0 30px 40px rgba(0,0,0,0.6), 0 0 0 2px #2f6f8a;
+            border: 1px solid #6db0c0;
+        }
+        .modal-title {
+            font-size: 1.7rem;
+            font-weight: bold;
+            margin-bottom: 14px;
+            background: linear-gradient(135deg, #cceeff, #88ccff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .xiaozhen-in-modal {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: #0a1c24cc;
+            border-radius: 60px;
+            padding: 8px 18px;
+            margin-bottom: 20px;
+            border: 1px solid #3f8aa0;
+        }
+        .xiaozhen-avatar-small {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: #2f6c7a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            font-size: 1.9rem;
+            border: 1px solid #7ab3cc;
+        }
+        .xiaozhen-avatar-small img { width: 100%; height: 100%; object-fit: cover; }
+        .xiaozhen-talk {
+            flex: 1;
+            background: #03161ed9;
+            border-radius: 32px;
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            color: #ddf4ff;
+            text-align: left;
+        }
+        .modal-body {
+            font-size: 0.95rem;
+            background: #0a1f28cc;
+            padding: 18px;
+            border-radius: 44px;
+            margin: 12px 0;
+            text-align: left;
+            color: #d6ecf5;
+            border: 1px solid #2f6f8a;
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 14px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .modal-btn {
+            background: #2e6a5c;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 60px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            cursor: pointer;
+            color: #e0f0fa;
+        }
+        .modal-btn.primary { background: #3f8aa0; color: white; }
+        .evidence-list { font-size: 0.8rem; padding-left: 20px; margin: 8px 0; }
+        .authority {
+            background: #0a1c24;
+            border-radius: 24px;
+            padding: 8px 12px;
+            margin-top: 12px;
+            font-size: 0.75rem;
+            color: #bbd4e6;
+            border-left: 4px solid #5db0c0;
+        }
+        .authority a { color: #aae0ff; text-decoration: underline; }
+        .technique-badge {
+            background: #1e4652;
+            padding: 6px 12px;
+            border-radius: 30px;
+            text-align: center;
+            margin: 8px 0;
+            font-size: 0.85rem;
+            font-weight: bold;
+            color: #ffeaac;
+        }
+        /* 图鉴相关样式 */
+        .album-card-list {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            max-height: 60vh;
+            overflow-y: auto;
+            padding: 4px;
+        }
+        .album-card-item {
+            background: #1c404c;
+            border-radius: 28px;
+            padding: 12px 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.1s;
+            border: 1px solid #2f6f8a;
+        }
+        .album-card-item.unlocked {
+            background: #1c404c;
+        }
+        .album-card-item.locked {
+            background: #142e38;
+            opacity: 0.6;
+            cursor: default;
+        }
+        .album-card-item.unlocked:hover {
+            background: #2a6070;
+            transform: scale(1.01);
+        }
+        .album-card-title {
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: #ffeaac;
+            margin-bottom: 6px;
+        }
+        .album-card-desc {
+            font-size: 0.65rem;
+            color: #bbd4e6;
+        }
+        .detail-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            backdrop-filter: blur(12px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 5000;
+            visibility: hidden;
+            opacity: 0;
+            transition: 0.2s;
+        }
+        .detail-modal.active {
+            visibility: visible;
+            opacity: 1;
+        }
+        .detail-card {
+            max-width: 380px;
+            width: 88%;
+            background: #10262ed9;
+            backdrop-filter: blur(12px);
+            border-radius: 48px;
+            padding: 20px;
+            text-align: left;
+            box-shadow: 0 30px 40px rgba(0,0,0,0.6), 0 0 0 2px #2f6f8a;
+            border: 1px solid #6db0c0;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            border-bottom: 1px solid #3f8aa0;
+            padding-bottom: 8px;
+        }
+        .detail-title {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #ffeaac;
+        }
+        .detail-close {
+            background: #2e6a5c;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            font-size: 1.2rem;
+            cursor: pointer;
+            color: white;
+        }
+        .detail-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 16px 0 12px;
+            gap: 16px;
+        }
+        .nav-btn {
+            background: #3f8aa0;
+            border: none;
+            padding: 6px 16px;
+            border-radius: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            color: white;
+        }
+        .nav-btn:active { transform: scale(0.96); }
+        .detail-index {
+            font-size: 0.8rem;
+            color: #bbd4e6;
+        }
+        .detail-content {
+            font-size: 0.85rem;
+            line-height: 1.4;
+            color: #e6f7ff;
+        }
+        .detail-content p {
+            margin: 8px 0;
+        }
+        .badge-collector {
+            display: inline-block;
+            background: #ffb347;
+            color: #2d2f36;
+            font-size: 1.2rem;
+            font-weight: bold;
+            padding: 4px 16px;
+            border-radius: 60px;
+            margin-bottom: 16px;
+            letter-spacing: 2px;
+        }
+    </style>
+</head>
+<body>
+<canvas id="fogCanvas"></canvas>
+<div id="spotlight"></div>
+
+<div id="startScreen" class="start-screen">
+    <div class="start-card">
+        <div class="start-avatar" id="startAvatar"></div>
+        <div class="start-title">迷雾棋盘·真相探员</div>
+        <div class="start-sub">虚假信息识别闯关游戏</div>
+        <button class="start-btn" id="startGameBtn">✨ 开始闯关 ✨</button>
+        <div class="start-footer">网络迷雾重重，小真陪你辨真伪</div>
+    </div>
+</div>
+
+<div id="endScreen" class="end-screen hide">
+    <div class="end-card" id="endCard">
+        <div class="end-avatar" id="endAvatar"></div>
+        <div class="end-title" id="endTitle">通关结局</div>
+        <div id="endBadge" style="min-height: 50px;"></div>
+        <div class="end-score" id="endScore">0 分</div>
+        <div class="end-message" id="endMessage">恭喜完成所有关卡！</div>
+        <div class="end-buttons">
+            <button class="end-btn small" id="endViewAlbumBtn">📖 查看图鉴</button>
+            <button class="end-btn small" id="endPlayAgainBtn">✨ 再来一次</button>
+        </div>
+    </div>
+</div>
+
+<div id="gameContainer" class="game-container">
+    <div class="stats-bar">
+        <div class="score-box">✨ 积分: <span id="scoreValue">0</span></div>
+        <div class="rank-box">🏅 <span id="rankTitle">信息甄别学徒</span></div>
+        <div class="item-count">
+            <span id="perspectiveBtn" class="perspective-btn">🔍 透视卡 <span id="透视剩余">2</span></span>
+            <span id="openAlbumBtn" style="background:#2a5f6e; padding:5px 14px; border-radius:40px;">📖 图鉴</span>
+        </div>
+    </div>
+
+    <div id="levelSelectPanel" class="board">
+        <div id="boardGrid" class="board-grid"></div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-text" id="progressText">已完成0关 / 共12关</div>
+    </div>
+
+    <div id="questionPanel" class="question-panel">
+        <div class="character">
+            <div class="avatar" id="xiaozhenAvatar"></div>
+            <div class="dialogue" id="dialogText">加载中...</div>
+        </div>
+        <div class="question-card">
+            <div id="mediaContainer" class="media-container" style="display: none;"></div>
+            <div class="question-text" id="questionText">加载中...</div>
+            <div class="options" id="optionsDiv">
+                <button class="option-btn" data-choice="真实">✅ 真实</button>
+                <button class="option-btn" data-choice="可疑虚假">⚠️ 可疑虚假</button>
+            </div>
+            <div id="extraHint" style="margin-top:12px; text-align:center; background:#0a1c24cc; padding:6px; border-radius:30px;"></div>
+        </div>
+    </div>
+    <footer>⚡ 每道题可二次学习 · 集齐图鉴成为「真相收藏家」</footer>
+</div>
+
+<div id="albumModal" class="modal-overlay">
+    <div class="feedback-modal" style="max-width:400px;">
+        <div class="modal-title">📖 谣言图鉴</div>
+        <div id="albumCards" class="album-card-list"></div>
+        <div id="albumFullReward" style="text-align:center; margin-top:12px;"></div>
+        <div class="modal-buttons">
+            <button class="modal-btn" id="closeAlbumBtn">关闭图鉴</button>
+        </div>
+    </div>
+</div>
+
+<div id="detailModal" class="detail-modal">
+    <div class="detail-card">
+        <div class="detail-header">
+            <span class="detail-title">🔍 图鉴详情</span>
+            <button class="detail-close" id="closeDetailBtn">✕</button>
+        </div>
+        <div id="detailContent" class="detail-content"></div>
+        <div class="detail-nav">
+            <button class="nav-btn" id="prevDetailBtn">◀ 上一张</button>
+            <span class="detail-index" id="detailIndex">第0张 / 共0张</span>
+            <button class="nav-btn" id="nextDetailBtn">下一张 ▶</button>
+        </div>
+    </div>
+</div>
+
+<div id="dynamicModal" class="modal-overlay"></div>
+
+<script>
+    const XIAOZHEN_AVATAR_URL = "https://i.ibb.co/Xfp1CZj8/5271a03ea42331561a54527528bd0b0c.jpg";
+    const preloadImg = new Image();
+    preloadImg.src = XIAOZHEN_AVATAR_URL;
+
+    const fogCanvas = document.getElementById('fogCanvas');
+    const ctx = fogCanvas.getContext('2d');
+    let width, height, fogParticles = [];
+    function initFog() {
+        width = window.innerWidth; height = window.innerHeight;
+        fogCanvas.width = width; fogCanvas.height = height;
+        for (let i = 0; i < 200; i++) fogParticles.push({ x: Math.random() * width, y: Math.random() * height, radius: Math.random() * 80 + 40, alpha: Math.random() * 0.25 + 0.1, speedX: (Math.random() - 0.5) * 0.3, speedY: (Math.random() - 0.5) * 0.15 });
+        animateFog();
+    }
+    function animateFog() {
+        if (!ctx) return;
+        ctx.clearRect(0, 0, width, height);
+        for (let p of fogParticles) {
+            p.x += p.speedX; p.y += p.speedY;
+            if (p.x < -100) p.x = width + 100; if (p.x > width + 100) p.x = -100;
+            if (p.y < -100) p.y = height + 100; if (p.y > height + 100) p.y = -100;
+            const grad = ctx.createRadialGradient(p.x, p.y, 10, p.x, p.y, p.radius);
+            grad.addColorStop(0, `rgba(100,180,210,${p.alpha * 0.6})`);
+            grad.addColorStop(0.6, `rgba(60,120,150,${p.alpha * 0.3})`);
+            grad.addColorStop(1, `rgba(30,70,90,0)`);
+            ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.fillStyle = 'rgba(20,50,70,0.08)'; ctx.fillRect(0, 0, width, height);
+        requestAnimationFrame(animateFog);
+    }
+    window.addEventListener('resize', () => { width = window.innerWidth; height = window.innerHeight; fogCanvas.width = width; fogCanvas.height = height; });
+    const spotlight = document.getElementById('spotlight');
+    function updateSpotlight(e) {
+        let x = e.touches ? e.touches[0].clientX : e.clientX, y = e.touches ? e.touches[0].clientY : e.clientY;
+        spotlight.style.setProperty('--x', x + 'px'); spotlight.style.setProperty('--y', y + 'px');
+    }
+    window.addEventListener('mousemove', updateSpotlight); window.addEventListener('touchmove', updateSpotlight); window.addEventListener('touchstart', updateSpotlight);
+    spotlight.style.setProperty('--x', '50%'); spotlight.style.setProperty('--y', '50%');
+    initFog();
+
+    function linkify(text) { return text ? text.replace(/(https?:\/\/[^\s]+)/g, url => `<a href="${url}" target="_blank">${url}</a>`) : text; }
+
+    class ImageCarousel {
+        constructor(container, imageUrls) {
+            this.container = container;
+            this.images = imageUrls.filter(url => url && url.trim() !== "");
+            this.currentIndex = 0;
+            if (this.images.length === 0) {
+                this.container.style.display = 'none';
+                return;
+            }
+            this.container.style.display = 'block';
+            this.container.innerHTML = `
+                <div class="carousel-main">
+                    <button class="carousel-btn prev">‹</button>
+                    <div class="carousel-img"><img src="" alt="配图" loading="lazy"></div>
+                    <button class="carousel-btn next">›</button>
+                </div>
+                <div class="carousel-dots" id="carousel-dots"></div>
+            `;
+            this.imgElement = this.container.querySelector('.carousel-img img');
+            this.prevBtn = this.container.querySelector('.prev');
+            this.nextBtn = this.container.querySelector('.next');
+            this.dotsContainer = this.container.querySelector('#carousel-dots');
+            for (let i = 0; i < this.images.length; i++) {
+                const dot = document.createElement('div');
+                dot.classList.add('dot');
+                dot.addEventListener('click', () => this.goTo(i));
+                this.dotsContainer.appendChild(dot);
+            }
+            this.dots = this.dotsContainer.querySelectorAll('.dot');
+            this.prevBtn.addEventListener('click', () => this.prev());
+            this.nextBtn.addEventListener('click', () => this.next());
+            this.updateImage();
+        }
+        updateImage() {
+            if (!this.imgElement) return;
+            this.imgElement.src = this.images[this.currentIndex];
+            this.imgElement.alt = "配图";
+            this.dots.forEach((dot, idx) => {
+                if (idx === this.currentIndex) dot.classList.add('active');
+                else dot.classList.remove('active');
+            });
+        }
+        prev() {
+            if (this.images.length === 0) return;
+            this.currentIndex = (this.currentIndex - 1 + this.images.length) % this.images.length;
+            this.updateImage();
+        }
+        next() {
+            if (this.images.length === 0) return;
+            this.currentIndex = (this.currentIndex + 1) % this.images.length;
+            this.updateImage();
+        }
+        goTo(index) {
+            if (index >= 0 && index < this.images.length) {
+                this.currentIndex = index;
+                this.updateImage();
+            }
+        }
+    }
+
+    const imageGroups = {
+        fake1: ["https://i.ibb.co/spfCbssf/WPS.jpg"],
+        fake2: ["https://i.ibb.co/5xBBzw8F/22.jpg"],
+        fake3: ["https://i.ibb.co/27n5gdCc/4.png"],
+        fake4: ["https://i.ibb.co/S73g3bSX/5.jpg"],
+        fake5: [],
+        fake6: ["https://i.ibb.co/NdnXJdsh/6.jpg", "https://i.ibb.co/KCh8Dw4/6-2.jpg", "https://i.ibb.co/XkM8rQxD/6-3.png", "https://i.ibb.co/WpyBGZcC/6-4.png"],
+        fake8: ["https://i.ibb.co/wFq5GS2h/8-1.png", "https://i.ibb.co/Cpbm0xVY/8-2.png"],
+        fake9: ["https://i.ibb.co/8gT9nLfN/9.png"],
+        fake10: ["https://i.ibb.co/3mTpczdd/10.jpg"],
+        fake11: [],
+        fake12: []
+    };
+
+    const fakeQuestions = [
+        { text:"【健康科普】医学研究证实每天坚持喝八杯柠檬水，能彻底清除体内所有毒素，包治百病！转发五次可保佑全家身体健康！", correct:"可疑虚假", type:"虚假", technique:"夸大功效+诱导转发类", clue:"想一想，如果柠檬水能包治百病，为什么全世界还有那么多医院呢？绝对化的承诺往往是谣言的第一步。", evidence:["结论定性：可疑虚假信息。","核心原因：不存在任何单一饮品能'清除所有毒素'或'包治百病'；该谣言长期流传。","通用技巧：健康内容出现'根治、包治百病、彻底排毒'等绝对化词汇，以及转发话术，一律高度警惕。"], authority:"权威来源：福建辟谣平台 2022-05-16 东南网 https://py.fjsen.com/2022-05/16/content_31035299.htm", mediaType: "image", images: imageGroups.fake1, perspectiveTip:"本题套路：使用绝对化词汇+诱导转发话术，是典型健康类谣言。" },
+        { text:"【国际营养学协会警告】普通大米中含有的砷元素会导致慢性中毒，欧美国家已经全面禁止食用大米，国内专家刻意隐瞒真相。", correct:"可疑虚假", type:"虚假", technique:"虚构机构+偷换概念类", clue:"这条消息把'砷'偷换概念等同于'砒霜'，听起来十分吓人。但你身边有人因为吃米饭中毒吗？常识矛盾就是谣言的破绽。", evidence:["结论定性：可疑虚假信息","核心原因：'国际营养学协会'为虚构；大米微量砷符合安全标准。","通用技巧：警惕'国外禁用、国内隐瞒'这类挑拨情绪的话术。"], authority:"权威来源：青岛新闻网辟谣平台 2017-12-25 https://piyao.qdxin.cn/shiyanshi/2017/1225.html", mediaType: "image", images: imageGroups.fake2, perspectiveTip:"本题套路：虚构权威机构，偷换科学概念，搭配阴谋论话术误导大众。" },
+        { text:"【突发】广东江门一餐厅发生剧烈爆炸，火光冲天，多辆汽车被掀翻，多人伤亡！", correct:"可疑虚假", type:"虚假", technique:"移花接木素材盗用类", clue:"画面逼真不等于事件真实！突发事故类视频，务必先核对公安、应急管理部门官方通报。", evidence:["结论定性：可疑虚假信息","核心原因：实际是影视剧组拍摄特效，无人员伤亡。","通用技巧：遇到突发事件视频，优先检索属地官方账号、主流媒体通报。"], authority:"权威来源：央视网、新华网、江门公安 2024-11 联合辟谣通报", mediaType: "image", images: imageGroups.fake3, perspectiveTip:"本题套路：挪用真实影像素材，篡改事件背景与性质制造恐慌。" },
+        { text:"【五一假期警示】张家界大峡谷玻璃桥突发坍塌事故！视频中桥头断裂、人群四散奔逃，配文：'没事就别想着出去玩了，还是家里安全'。", correct:"可疑虚假", type:"虚假", technique:"AI合成伪造影像类", clue:"知名景区如果发生重大坍塌伤亡事故，国家级媒体、当地公安一定会紧急通报，绝不会只靠个人账号传播。", evidence:["结论定性：可疑虚假信息","核心原因：事发期间玻璃桥正常运营，视频存在AI合成漏洞。","通用技巧：用以图搜图反向搜索，观察画面细节是否违和。"], authority:"权威来源：慈利县公安局（2026-05-13）、央视网（2026-05-17）、公安部网安局（2026-05-26）", mediaType: "image", images: imageGroups.fake4, perspectiveTip:"本题套路：借助AI技术伪造灾难影像，蹭节假日旅游流量，编造安全事故制造恐慌。" },
+        { text:"国家医疗保障局联合财政部发布《关于优化退休人员医疗保险待遇结构的实施方案》：2025年10月1日起，全国退休人员医保账户每月额外返500元，普通门诊改自费；本政策暂不予公开宣传。", correct:"可疑虚假", type:"虚假", technique:"伪造公文+诈骗引流类", clue:"国家惠民政策一定公开透明、全民可查，要求保密、不让声张的官方文件100%是假的。", evidence:["结论定性：可疑虚假信息","核心原因：国家医保局从未发布该文件，文号、公章均造假。","通用技巧：社保政策仅以政府官网、政务客户端发布为准。"], authority:"权威来源：中国互联网联合辟谣平台（2025-08-25）、北京违法和不良信息举报平台（2025-10-29）", mediaType: "image", images: imageGroups.fake5, perspectiveTip:"本题套路：仿冒官方公文样式，利用'保密'话术掩盖文件造假漏洞，捆绑福利谣言实施引流或诈骗。" },
+        { text:"2026年5月21日起，网络流传一组九宫格监控图片，配文称：'山东济南山姆开业后出现多起偷吃事件，素质何在？'", correct:"可疑虚假", type:"虚假", technique:"素材拼接+地域对立类", clue:"拆开看，每张图可能都是真的；但拼到一起讲同一个故事，就成了谣言！这种拼接造谣越来越常见，看到'多张截图'先在心里打个问号。", evidence:["结论定性：可疑虚假信息","核心原因：所有图片均为全国多地往年旧素材，无一张来自济南门店。","通用技巧：面对多图组合，核对画面场景、事发时间与地点。"], authority:"权威来源：济南公安 2026-06-03 官方通报、新黄河/海报新闻 2026-05-25 实地调查", mediaType: "image", images: imageGroups.fake6, perspectiveTip:"本题套路：跨时间、跨地域拼接旧素材，强行绑定单一城市新事件，制造地域对立。" },
+        { text:"世界卫生组织内部文件泄露：佩戴口罩超过10分钟会造成人体缺氧，长期佩戴损伤大脑，儿童受害风险更高。", correct:"可疑虚假", type:"虚假", technique:"伪造国际权威+伪科学类", clue:"正规国际组织不会泄露'内部机密文件'，文稿出现错别字、格式混乱，基本可以判定为造假。", evidence:["结论定性：可疑虚假信息","核心原因：WHO早已辟谣，规范戴口罩不会缺氧。","通用技巧：涉及国际组织的健康警示，只查官方网站。"], authority:"权威来源：世界卫生组织（WHO）2020-08-03 官方声明", mediaType: "image", images: imageGroups.fake8, perspectiveTip:"本题套路：仿冒国际权威机构文件，借'内部流出'说法增强迷惑性，搭配伪科学话术煽动恐慌。" },
+        { text:"2026年1月微信群疯传：'腾讯微信朋友圈新规：好友数量过多会被封号，长期定位在同一地址也会被封号'。", correct:"可疑虚假", type:"虚假", technique:"编造新规类", clue:"这类账号新规谣言反复轮回出现，大多是黑灰产为掩盖自身违规被处罚编造的借口。", evidence:["结论定性：可疑虚假信息","核心原因：微信安全中心明确辟谣，不存在此类封号新规。","通用技巧：平台新规只信官方公告，不要轻信网络截图。"], authority:"权威来源：微信安全中心（2026-01-06）、新华网客户端", mediaType: "image", images: imageGroups.fake9, perspectiveTip:"本题套路：编造平台新规，利用用户担忧账号安全的心理传播谣言。" },
+        { text:"数据截图配文：2024年中国男性平均寿命仅69.9岁，女性78.5岁，人均寿命还在连年下降。", correct:"可疑虚假", type:"虚假", technique:"偷换概念类", clue:"'平均死亡年龄' 统计的是已经去世的人，'人均预期寿命' 预测的是全体国民，两者完全不能等同，造谣者利用概念混淆误导大众。", evidence:["结论定性：可疑虚假信息","核心原因：69.9岁是已故人群平均死亡年龄；国家卫健委数据显示2023年人均预期寿命78.6岁。","通用技巧：遇到统计数据，务必核实术语定义与官方口径。"], authority:"权威来源：国家卫健委《2023年我国卫生健康事业发展统计公报》", mediaType: "image", images: imageGroups.fake10, perspectiveTip:"本题套路：混淆平均死亡年龄与人均预期寿命两个专业概念，制造恐慌。" },
+        { text:"【紧急通知】您的社保账号状态异常，请速办登记认证，逾期将影响社保待遇发放！点击链接立即办理：https://xxxxx.xyz", correct:"可疑虚假", type:"虚假", technique:"钓鱼诈骗类", clue:"凡是短信里让你点链接填个人信息的，十有八九是诈骗！直接打官方电话问一句就清楚了。", evidence:["结论定性：可疑虚假信息","核心原因：人社部门从未发送此类认证链接，诈骗分子诱导填写信息盗刷。","通用技巧：不点链接、不填信息，直接拨打12333核实。"], authority:"权威来源：中国互联网联合辟谣平台 2025年4月辟谣榜", mediaType: "image", images: imageGroups.fake11, perspectiveTip:"本题套路：假冒政务部门名义，附带陌生链接，以账户异常为由实施钓鱼诈骗。" },
+        { text:"【快讯】刚刚！重庆一工业园区着火，现场浓烟滚滚，已造成10人遇难上百人失联，伤亡可能进一步上升。", correct:"可疑虚假", type:"虚假", technique:"灾难造谣类", clue:"如果真有10人死亡上百人失联，重庆市政府和应急管理部肯定会召开新闻发布会。没有官方消息之前，不要转发。", evidence:["结论定性：可疑虚假信息","核心原因：经核查无该事故，网传视频为外地旧火灾素材拼接。","通用技巧：重大灾难只看官方媒体，民间账号抢先发的快讯大概率是谣言。"], authority:"权威来源：重庆官方辟谣平台（2025-04-09）", mediaType: "image", images: imageGroups.fake12, perspectiveTip:"本题套路：使用模糊时间、地点，编造重大伤亡事故，博眼球制造社会恐慌。" }
+    ];
+    const realQuestions = [
+        { text:"国务院公布《未成年人网络保护条例》，自2024年1月1日起施行，要求网络平台不得向未成年人提供诱导沉迷的产品和服务，设置未成年人模式。", correct:"真实", type:"真实", technique:"官方政策公告类", clue:"官方条例语言严谨，写明适用范围、责任主体与生效日期，可在中国政府网查阅原文核对。", evidence:["结论定性：真实信息","核心原因：国务院正式行政法规，中国政府网、央视新闻均全文发布。","通用技巧：国家级法规以政府官网、权威媒体发布为准。"], authority:"权威来源：中国政府网（2023-10-24）", mediaType: "image", images: [], perspectiveTip:"国家正式行政法规，表述规范、条款清晰、有明确生效时间与发布主体，无夸张煽动语言。" },
+        { text:"中国铁路官方公告：自2025年7月1日起，儿童优惠票按年龄划分，6周岁以下免票，6—14周岁购买儿童票，不再沿用身高标准。", correct:"真实", type:"真实", technique:"官方政策公告类", clue:"官方公告语言规范客观，不会催促转发、危言耸听，有明确执行细则、适用限制与权威来源。", evidence:["结论定性：真实信息","核心原因：中国国家铁路集团正式发布，12306官网同步公告。","通用技巧：交通类政策可通过国务院客户端、主管单位官网验证。"], authority:"权威来源：中国国家铁路集团、12306官网", mediaType: "image", images: [], perspectiveTip:"正规公共政策表述严谨，标注明确执行时间、适用范围与发布主体，无夸张、诱导、制造恐慌话术。" },
+        { text:"微信安全中心提示：若收到好友请求帮忙扫码辅助登录、索要短信验证码或微信账号密码，切勿配合，这是典型盗号诈骗。", correct:"真实", type:"真实", technique:"平台安全提示类", clue:"短信验证码、扫码辅助登录等同于个人密码，这类具体场景化安全提醒来自官方平台，可信度高。", evidence:["结论定性：真实信息","核心原因：微信安全中心多次发布，案例真实可查。","通用技巧：互联网平台安全资讯以官方账号发布为准。"], authority:"权威来源：微信安全中心公众号、公安部反诈中心", mediaType: "image", images: [], perspectiveTip:"平台官方安全提示，给出具体场景、明确风险点与可操作防护方法，表述客观中立、不夸大。" },
+        { text:"国家网信办发布《移动互联网未成年人模式建设指南》，要求移动智能终端、应用及分发平台提供未成年人模式，可屏蔽不适宜内容，支持家长设置使用时长。", correct:"真实", type:"真实", technique:"平台安全提示类", clue:"针对未成年人的网络保护规则有明确国家标准，可对照国家网信办发布的指南核对。", evidence:["结论定性：真实信息","核心原因：内容来自国家网信办官方指南，主流平台均已落实。","通用技巧：网络治理规则优先查阅国家网信办、工信部官网文件。"], authority:"权威来源：国家网信办（2024-11）", mediaType: "image", images: [], perspectiveTip:"主管部门对平台的强制性规定，表述清晰、条件明确、无营销话术。" },
+        { text:"食品卫生常识：冷藏保存的熟肉、剩菜、米饭等熟食，在冰箱存放不宜超过24小时；再次食用前必须彻底加热至中心温度70℃以上并保持1—2分钟。", correct:"真实", type:"真实", technique:"生活常识科普类", clue:"这是经过食品安全机构验证的日常饮食卫生常识，表述严谨、剂量明确、不夸大效果。", evidence:["结论定性：真实信息","核心原因：符合《食品安全国家标准》及疾控中心科普。","通用技巧：客观陈述常识、有具体数据、无极端词汇的生活内容可信度高。"], authority:"权威来源：国家卫健委、中国疾控中心", mediaType: "image", images: [], perspectiveTip:"客观生活科普，用词中立、数据具体、无绝对化、恐吓、营销类表述。" },
+        { text:"国内多所双一流及省属重点高校自2024—2025学年起调整人才培养方案，普遍增设人工智能基础、网络安全、数据素养等通识选修课，部分高校将数字素养纳入毕业必修学分。", correct:"真实", type:"真实", technique:"校园资讯类", clue:"高校优化课程设置是近年普遍趋势，结合多所院校动态与主流媒体报道，可综合判断信息真伪。", evidence:["结论定性：真实信息","核心原因：契合教育部指导意见，北大、清华等多所高校已实施。","通用技巧：教育类资讯可结合教育部文件、多所院校官网通知综合辨别。"], authority:"权威来源：教育部（2024）", mediaType: "image", images: [], perspectiveTip:"贴合近年教育改革趋势，多家权威媒体、教育平台均有连续报道，表述客观、范围合理。" }
+    ];
+    function getRandomItems(pool, count) {
+        let shuffled = [...pool];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+            let j = Math.floor(Math.random() * (i + 1));
+            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+        return shuffled.slice(0, count);
+    }
+    let selectedFake = getRandomItems(fakeQuestions, 8);
+    let selectedReal = getRandomItems(realQuestions, 4);
+    let allQuestions = [...selectedFake, ...selectedReal];
+    for (let i = allQuestions.length - 1; i > 0; i--) {
+        let j = Math.floor(Math.random() * (i + 1));
+        [allQuestions[i], allQuestions[j]] = [allQuestions[j], allQuestions[i]];
+    }
+    const QUESTIONS = allQuestions.map((q, idx) => ({ ...q, id: idx }));
+
+    let questionsStatus = [];      
+    let totalScore = 0;
+    let perspectiveRemaining = 2;
+    let currentPlayingLevel = null;   
+    let waitingRetry = false;
+    let currentQuestionObj = null;
+    let perspectiveUsedOnCurrent = false;
+    let gameCompletedFlag = false;
+    let rankMap = [{min:0, max:60, title:"信息甄别学徒"},{min:61, max:100, title:"舆情辨析专员"},{min:101, max:120, title:"网络真相裁判官"}];
+
+    const levelSelectPanel = document.getElementById('levelSelectPanel');
+    const questionPanel = document.getElementById('questionPanel');
+    const boardGrid = document.getElementById('boardGrid');
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
+    const dialogText = document.getElementById('dialogText');
+    const xiaozhenAvatar = document.getElementById('xiaozhenAvatar');
+    const startAvatar = document.getElementById('startAvatar');
+    const endAvatar = document.getElementById('endAvatar');
+    const startScreenDiv = document.getElementById('startScreen');
+    const endScreenDiv = document.getElementById('endScreen');
+    const gameContainerDiv = document.getElementById('gameContainer');
+    const openAlbumBtn = document.getElementById('openAlbumBtn');
+    const perspectiveBtn = document.getElementById('perspectiveBtn');
+    const albumModal = document.getElementById('albumModal');
+    const closeAlbumBtn = document.getElementById('closeAlbumBtn');
+    const detailModal = document.getElementById('detailModal');
+    const closeDetailBtn = document.getElementById('closeDetailBtn');
+    const prevDetailBtn = document.getElementById('prevDetailBtn');
+    const nextDetailBtn = document.getElementById('nextDetailBtn');
+    const detailIndexSpan = document.getElementById('detailIndex');
+    const detailContentDiv = document.getElementById('detailContent');
+    const dynamicModal = document.getElementById('dynamicModal');
+    const mediaContainer = document.getElementById('mediaContainer');
+    let currentCarousel = null;
+
+    let unlockedQuestions = [];
+    let currentDetailIndex = 0;
+
+    function updateUnlockedList() {
+        unlockedQuestions = [];
+        for (let i = 0; i < QUESTIONS.length; i++) {
+            if (questionsStatus[i] && questionsStatus[i].lit === true) {
+                unlockedQuestions.push(QUESTIONS[i]);
+            }
+        }
+    }
+
+    function buildAlbum() {
+        const container = document.getElementById('albumCards');
+        container.innerHTML = '';
+        updateUnlockedList();
+        if (unlockedQuestions.length === 0) {
+            container.innerHTML = '<div style="text-align:center; padding:20px; color:#bbd4e6;">暂无解锁图鉴，请先闯关答题！</div>';
+        } else {
+            for (let i = 0; i < unlockedQuestions.length; i++) {
+                const q = unlockedQuestions[i];
+                const card = document.createElement('div');
+                card.className = 'album-card-item unlocked';
+                card.innerHTML = `
+                    <div class="album-card-title">📌 ${q.text.substring(0, 28)}${q.text.length > 28 ? '…' : ''}</div>
+                    <div class="album-card-desc">${q.technique}</div>
+                `;
+                card.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openDetailModal(i);
+                });
+                container.appendChild(card);
+            }
+        }
+        // 满图鉴奖励横幅
+        const rewardDiv = document.getElementById('albumFullReward');
+        if (unlockedQuestions.length === 12) {
+            rewardDiv.innerHTML = '<div style="background:#2f6a5ccc; border-radius: 40px; padding:8px; color:#ffecb3;">🏅 真相收藏家 · 全图鉴达成 🏅</div>';
+        } else {
+            rewardDiv.innerHTML = '';
+        }
+    }
+
+    function openDetailModal(index) {
+        if (unlockedQuestions.length === 0) return;
+        currentDetailIndex = index;
+        renderDetailContent();
+        detailModal.classList.add('active');
+    }
+    function renderDetailContent() {
+        const q = unlockedQuestions[currentDetailIndex];
+        if (!q) return;
+        const evidenceHtml = `<div class="evidence-list">${q.evidence.map(e => `<li>${e}</li>`).join('')}</div>`;
+        const authorityHtml = `<div class="authority">📌 ${linkify(q.authority)}</div>`;
+        detailContentDiv.innerHTML = `
+            <p><strong>📖 题干：</strong><br>${q.text}</p>
+            <p><strong>🎭 迷惑手法类型：</strong> ${q.technique}</p>
+            <p><strong>💡 小真引导语：</strong> ${q.clue}</p>
+            <p><strong>🔍 三段式识别依据：</strong></p>
+            ${evidenceHtml}
+            ${authorityHtml}
+        `;
+        detailIndexSpan.innerText = `第${currentDetailIndex+1}张 / 共${unlockedQuestions.length}张`;
+    }
+    function prevDetail() {
+        if (unlockedQuestions.length === 0) return;
+        currentDetailIndex = (currentDetailIndex - 1 + unlockedQuestions.length) % unlockedQuestions.length;
+        renderDetailContent();
+    }
+    function nextDetail() {
+        if (unlockedQuestions.length === 0) return;
+        currentDetailIndex = (currentDetailIndex + 1) % unlockedQuestions.length;
+        renderDetailContent();
+    }
+    function closeDetail() {
+        detailModal.classList.remove('active');
+    }
+
+    function updateScoreUI() {
+        document.getElementById('scoreValue').innerText = totalScore;
+        let rank = rankMap.find(r => totalScore >= r.min && totalScore <= r.max);
+        document.getElementById('rankTitle').innerText = rank ? rank.title : "真相执行官";
+    }
+    function updatePerspectiveUI() {
+        let btn = document.getElementById('perspectiveBtn');
+        document.getElementById('透视剩余').innerText = perspectiveRemaining;
+        if(perspectiveRemaining <= 0 || waitingRetry) btn.classList.add('disabled');
+        else btn.classList.remove('disabled');
+    }
+    function setDialog(msg) { dialogText.innerHTML = msg; }
+    function updateProgressBar() {
+        let completed = questionsStatus.filter(s => s && s.finished === true).length;
+        let percent = (completed / 12) * 100;
+        progressFill.style.width = percent + "%";
+        progressText.innerText = `已完成${completed}关 / 共12关`;
+    }
+    function renderLevelSelect() {
+        boardGrid.innerHTML = "";
+        let startCard = document.createElement('div');
+        startCard.className = 'level-card start';
+        startCard.innerHTML = `<div class="level-title">🏁 起点</div><div class="level-status">已解锁</div>`;
+        boardGrid.appendChild(startCard);
+        for (let i = 0; i < 12; i++) {
+            let st = questionsStatus[i];
+            let card = document.createElement('div');
+            if (st && st.finished) {
+                if (st.lit) {
+                    card.className = 'level-card lit';
+                    card.innerHTML = `<div class="level-title">第${i+1}关</div><div class="level-status completed">✨ 已完成</div>`;
+                } else {
+                    card.className = 'level-card foggy';
+                    card.innerHTML = `<div class="level-title">第${i+1}关</div><div class="level-status completed">🌫️ 已完成</div>`;
+                }
+                card.style.cursor = 'default';
+            } else {
+                card.className = 'level-card foggy';
+                card.innerHTML = `<div class="level-title">第${i+1}关</div><div class="level-status pending">🌫️ 未挑战</div>`;
+                card.style.cursor = 'pointer';
+                card.onclick = () => enterLevel(i);
+            }
+            boardGrid.appendChild(card);
+        }
+        let endCard = document.createElement('div');
+        endCard.className = 'level-card end';
+        let allFinished = questionsStatus.length === 12 && questionsStatus.every(s => s && s.finished === true);
+        endCard.innerHTML = `<div class="level-title">🏆 终点</div><div class="level-status">${allFinished ? '已抵达' : '未解锁'}</div>`;
+        boardGrid.appendChild(endCard);
+        updateProgressBar();
+    }
+
+    function showEndScreen() {
+        if (gameCompletedFlag) return;
+        gameCompletedFlag = true;
+        let finalScore = totalScore;
+        let endingMsg = "";
+        let endingTitle = "";
+        if(finalScore <=60) {
+            endingMsg = "闯关结束，棋盘仍有大片迷雾未消散。你还需要多加练习，提升信息辨别能力哦。";
+            endingTitle = "信息甄别学徒";
+        } else if(finalScore <=100) {
+            endingMsg = "闯关成功！大部分信息迷雾已被破除，你已掌握基础的虚假信息识别技巧。";
+            endingTitle = "舆情辨析专员";
+        } else {
+            endingMsg = "恭喜完美通关！整座棋盘迷雾尽数消散，你成为了一名优秀的全网真相执行官！";
+            endingTitle = "网络真相裁判官";
+        }
+        let allUnlocked = questionsStatus.every(s => s && s.lit === true);
+        if(allUnlocked) {
+            endingMsg += " 🌟 哇！你集齐了所有图鉴！我愿称你为谣言终结者！ 🌟";
+        }
+        document.getElementById('endTitle').innerHTML = endingTitle;
+        document.getElementById('endScore').innerHTML = finalScore + " 分";
+        document.getElementById('endMessage').innerHTML = endingMsg;
+        
+        // 满图鉴奖励：显示隐藏称号 + 特效
+        const badgeDiv = document.getElementById('endBadge');
+        if (allUnlocked) {
+            badgeDiv.innerHTML = '<div class="badge-collector">🏅 真相收藏家 🏅</div>';
+            // 终点卡片闪烁特效
+            const endCardElem = document.querySelector('.level-card.end');
+            if (endCardElem) {
+                endCardElem.classList.add('end-card-glow');
+                setTimeout(() => {
+                    endCardElem.classList.remove('end-card-glow');
+                }, 2400);
+            }
+            // 结局卡片本身闪烁
+            const endCardDiv = document.getElementById('endCard');
+            if (endCardDiv) {
+                endCardDiv.style.animation = 'starGlow 0.8s ease-in-out 2';
+                setTimeout(() => {
+                    endCardDiv.style.animation = '';
+                }, 1600);
+            }
+        } else {
+            badgeDiv.innerHTML = '';
+        }
+        
+        const createImg = (container) => {
+            const img = document.createElement('img');
+            img.src = XIAOZHEN_AVATAR_URL;
+            container.innerHTML = '';
+            container.appendChild(img);
+        };
+        createImg(endAvatar);
+        gameContainerDiv.classList.remove('visible');
+        endScreenDiv.classList.remove('hide');
+    }
+
+    function resetGame() {
+        questionsStatus = [];
+        for(let i=0;i<12;i++) questionsStatus.push({ finished: false, finalCorrect: false, scoreEarned: 0, lit: false, hasWrongFirst: false });
+        totalScore = 0;
+        perspectiveRemaining = 2;
+        waitingRetry = false;
+        gameCompletedFlag = false;
+        currentPlayingLevel = null;
+        perspectiveUsedOnCurrent = false;
+        updateScoreUI();
+        renderLevelSelect();
+        setDialog("欢迎探员！点击任意未挑战的关卡开始闯关吧！");
+        updatePerspectiveUI();
+        levelSelectPanel.style.display = 'block';
+        questionPanel.classList.remove('active');
+        endScreenDiv.classList.add('hide');
+        gameContainerDiv.classList.add('visible');
+    }
+
+    function enterLevel(levelIdx) {
+        if (questionsStatus[levelIdx] && questionsStatus[levelIdx].finished) return;
+        currentPlayingLevel = levelIdx;
+        currentQuestionObj = QUESTIONS[levelIdx];
+        waitingRetry = false;
+        perspectiveUsedOnCurrent = false;
+        levelSelectPanel.style.display = 'none';
+        questionPanel.classList.add('active');
+        loadQuestionUI();
+        setDialog(`第${levelIdx+1}关：小真陪你一起分辨真假！`);
+        updatePerspectiveUI();
+    }
+
+    function loadQuestionUI() {
+        document.getElementById('questionText').innerHTML = `📢 ${currentQuestionObj.text}`;
+        mediaContainer.innerHTML = '';
+        mediaContainer.style.display = 'none';
+        if (currentCarousel) currentCarousel = null;
+        if (currentQuestionObj.images && currentQuestionObj.images.length > 0) {
+            currentCarousel = new ImageCarousel(mediaContainer, currentQuestionObj.images);
+        }
+        document.getElementById('optionsDiv').classList.remove('hidden');
+        document.getElementById('extraHint').innerHTML = "";
+    }
+
+    function goToNextLevel() {
+        let nextLevel = currentPlayingLevel + 1;
+        if (nextLevel < 12) {
+            enterLevel(nextLevel);
+        } else {
+            levelSelectPanel.style.display = 'block';
+            questionPanel.classList.remove('active');
+            renderLevelSelect();
+            showEndScreen();
+        }
+    }
+    
+    function exitToLevelSelect() {
+        levelSelectPanel.style.display = 'block';
+        questionPanel.classList.remove('active');
+        renderLevelSelect();
+    }
+
+    function showModal(title, bodyHtml, buttons = [], xiaozhenMessage = "") {
+        return new Promise((resolve) => {
+            const avatarHtml = `<img src="${XIAOZHEN_AVATAR_URL}" alt="小真" style="width:100%; height:100%; object-fit: cover;">`;
+            const xiaozhenHtml = `<div class="xiaozhen-in-modal"><div class="xiaozhen-avatar-small">${avatarHtml}</div><div class="xiaozhen-talk">💬 小真 says：${xiaozhenMessage || "我们一起学习真假信息辨识！"}</div></div>`;
+            dynamicModal.innerHTML = `<div class="feedback-modal"><div class="modal-title">${title}</div>${xiaozhenHtml}<div class="modal-body">${bodyHtml}</div><div class="modal-buttons" id="modal-buttons-dyn"></div></div>`;
+            let btnContainer = dynamicModal.querySelector("#modal-buttons-dyn");
+            buttons.forEach(btn => {
+                let button = document.createElement("button");
+                button.className = `modal-btn ${btn.type === 'primary' ? 'primary' : ''}`;
+                button.innerText = btn.text;
+                button.onclick = () => {
+                    dynamicModal.classList.remove("active");
+                    if(btn.onClick) btn.onClick();
+                    resolve(btn.value);
+                };
+                btnContainer.appendChild(button);
+            });
+            dynamicModal.classList.add("active");
+        });
+    }
+    
+    async function askNextLevel() {
+        let allFinished = questionsStatus.every(s => s && s.finished === true);
+        if (allFinished) {
+            levelSelectPanel.style.display = 'block';
+            questionPanel.classList.remove('active');
+            renderLevelSelect();
+            showEndScreen();
+            return;
+        }
+        let nextExists = (currentPlayingLevel + 1) < 12;
+        let message = nextExists ? "是否继续挑战下一关？" : "恭喜你完成了所有关卡！";
+        let buttons = nextExists ? [
+            { text: "🚀 进入下一关", type: "primary", value: "next", onClick: () => {} },
+            { text: "🏠 返回关卡", type: "", value: "back", onClick: () => {} }
+        ] : [
+            { text: "返回关卡", type: "primary", value: "back", onClick: () => {} }
+        ];
+        let choice = await showModal("✨ 继续探索", `<div style="text-align:center;">${message}</div>`, buttons, "要继续挑战吗？");
+        if (choice === "next") {
+            goToNextLevel();
+        } else {
+            exitToLevelSelect();
+        }
+    }
+
+    async function correctFlow(isRetry, addPoints) {
+        totalScore += addPoints;
+        if (!questionsStatus[currentPlayingLevel]) questionsStatus[currentPlayingLevel] = {};
+        questionsStatus[currentPlayingLevel].finished = true;
+        questionsStatus[currentPlayingLevel].finalCorrect = true;
+        questionsStatus[currentPlayingLevel].scoreEarned = addPoints;
+        questionsStatus[currentPlayingLevel].lit = true;
+        updateScoreUI();
+        renderLevelSelect(); 
+        let title = isRetry ? "🎉 学习成功！" : "✅ 回答正确！";
+        let msg = isRetry ? `学习成功！+${addPoints}分` : `回答正确！+${addPoints}分`;
+        let techniqueHtml = `<div class="technique-badge">🎭 迷惑手法类型：${currentQuestionObj.technique}</div>`;
+        let evidenceHtml = `<div style="font-weight:bold;">🔍 三段式识别依据：</div><ul class="evidence-list">${currentQuestionObj.evidence.map(e=>`<li>${e}</li>`).join("")}</ul>`;
+        evidenceHtml += `<div class="authority">📌 ${linkify(currentQuestionObj.authority)}</div>`;
+        let body = `<div style="margin-bottom:12px;">${msg}</div>${techniqueHtml}${evidenceHtml}`;
+        let talkMsg = isRetry ? ["学习成功！你已经掌握这条技巧啦！","第二次判断正确！记住这些依据～","太棒了，从错误中学会真相！"][Math.floor(Math.random()*3)] : ["答对了！迷雾散开一点了～","漂亮！信息辨伪成功！","厉害，保持警惕！","正确！又识破一条谣言！"][Math.floor(Math.random()*4)];
+        setDialog(`小真：${talkMsg}`);
+        await showModal(title, body, [{ text: "继续", type: "primary", onClick: () => {} }], talkMsg);
+        waitingRetry = false;
+        await askNextLevel();
+    }
+
+    async function finalWrongFlow() {
+        if (!questionsStatus[currentPlayingLevel]) questionsStatus[currentPlayingLevel] = {};
+        questionsStatus[currentPlayingLevel].finished = true;
+        questionsStatus[currentPlayingLevel].finalCorrect = false;
+        questionsStatus[currentPlayingLevel].scoreEarned = 0;
+        questionsStatus[currentPlayingLevel].lit = false;
+        renderLevelSelect();
+        let techniqueHtml = `<div class="technique-badge">🎭 迷惑手法类型：${currentQuestionObj.technique}</div>`;
+        let evidenceHtml = `<div style="font-weight:bold;">📚 标准依据：</div><ul class="evidence-list">${currentQuestionObj.evidence.map(e=>`<li>${e}</li>`).join("")}</ul>`;
+        evidenceHtml += `<div class="authority">📌 ${linkify(currentQuestionObj.authority)}</div>`;
+        let talkMsg = ["别灰心，下次记住这些依据。","两次都没对，我们下次再挑战这条！","记住了依据，以后就不会被骗啦。"][Math.floor(Math.random()*3)];
+        setDialog(`小真：${talkMsg}`);
+        await showModal("😔 两次均未答对", `<div>很遗憾，两次判断都不正确，迷雾未能消散。</div>${techniqueHtml}${evidenceHtml}`, [{ text: "继续", type: "primary", onClick: () => {} }], talkMsg);
+        waitingRetry = false;
+        await askNextLevel();
+    }
+
+    async function wrongFirstFlow() {
+        if (!questionsStatus[currentPlayingLevel]) questionsStatus[currentPlayingLevel] = {};
+        questionsStatus[currentPlayingLevel].hasWrongFirst = true;
+        let guideHtml = `<div style="background:#0e2a32cc; padding:10px; border-radius:28px; margin-bottom:12px; border-left:4px solid #6db0c0;">💡 小真引导：${currentQuestionObj.clue}</div>`;
+        let body = `${guideHtml}<hr><div style="text-align:center; margin: 6px 0;">🔁 请重新判断：</div>`;
+        let talkMsg = ["没关系，我们一起学习，再试试看！","第一次没对不要紧，看看依据再选一次～","小真陪你分析，重新判断吧！"][Math.floor(Math.random()*3)];
+        setDialog(`小真：${talkMsg}`);
+        let buttons = [{ text: "✅ 判断为【真实】", type: "primary", value: "真实", onClick: () => {} },{ text: "⚠️ 判断为【可疑虚假】", type: "", value: "可疑虚假", onClick: () => {} }];
+        let userChoice = await showModal("📢 辨别挑战", body, buttons, talkMsg);
+        let isCorrect = (userChoice === currentQuestionObj.correct);
+        if(isCorrect) await correctFlow(true, 5);
+        else await finalWrongFlow();
+    }
+
+    async function handleChoice(choice) {
+        if(waitingRetry) { setDialog("小真：请先完成当前弹窗中的二次判断"); return; }
+        if (questionsStatus[currentPlayingLevel] && questionsStatus[currentPlayingLevel].finished) return;
+        let isCorrect = (choice === currentQuestionObj.correct);
+        if(isCorrect) await correctFlow(false, 10);
+        else { waitingRetry = true; await wrongFirstFlow(); waitingRetry = false; }
+    }
+
+    async function usePerspective() {
+        if(gameCompletedFlag){ setDialog("小真：游戏已通关"); return; }
+        if(perspectiveRemaining <= 0){ setDialog("小真：没有透视卡次数了"); return; }
+        if(perspectiveUsedOnCurrent){ setDialog("小真：本题已用过透视卡"); return; }
+        const tip = currentQuestionObj.perspectiveTip || "本题套路：使用常见虚假信息手法，请根据引导和依据仔细判断。";
+        let msg = ["透视卡揭示手法，谨慎判断～","使用透视卡！仔细看手法提示。","小真帮你分析：这道题的手法就藏在下面～"][Math.floor(Math.random()*3)];
+        setDialog(`小真：${msg}`);
+        let bodyHtml = `<div style="text-align:center; padding:4px;">🔍 ${tip}<br><br>💡 根据这个提示重新判断吧～</div>`;
+        await showModal("🔍 透视卡", bodyHtml, [{ text: "知道了", type: "primary", onClick: () => {} }], msg);
+        document.getElementById("extraHint").innerHTML = `<span style="background:#1c4652; padding:4px 12px; border-radius:30px;">💡 透视提示：${tip}</span>`;
+        perspectiveRemaining--;
+        perspectiveUsedOnCurrent = true;
+        updatePerspectiveUI();
+    }
+
+    function initGameState() {
+        questionsStatus = [];
+        for(let i=0;i<12;i++) questionsStatus.push({ finished: false, finalCorrect: false, scoreEarned: 0, lit: false, hasWrongFirst: false });
+        totalScore = 0;
+        perspectiveRemaining = 2;
+        waitingRetry = false;
+        gameCompletedFlag = false;
+        currentPlayingLevel = null;
+        perspectiveUsedOnCurrent = false;
+        updateScoreUI();
+        renderLevelSelect();
+        setDialog("欢迎探员！点击任意未挑战的关卡开始闯关吧！");
+        updatePerspectiveUI();
+        levelSelectPanel.style.display = 'block';
+        questionPanel.classList.remove('active');
+    }
+
+    function loadAvatarFromLocal() {
+        const createImg = (container) => {
+            const img = document.createElement('img');
+            img.src = XIAOZHEN_AVATAR_URL;
+            container.innerHTML = '';
+            container.appendChild(img);
+        };
+        createImg(xiaozhenAvatar);
+        createImg(startAvatar);
+        createImg(endAvatar);
+    }
+    xiaozhenAvatar.addEventListener("click", () => {
+        setDialog("小真：我是小真，和我一起辨别信息真伪吧！");
+    });
+
+    document.getElementById("startGameBtn").addEventListener("click", () => {
+        startScreenDiv.classList.add("hide");
+        gameContainerDiv.classList.add("visible");
+        loadAvatarFromLocal();
+        initGameState();
+    });
+    perspectiveBtn.addEventListener("click", usePerspective);
+    openAlbumBtn.addEventListener("click", () => { 
+        buildAlbum(); 
+        albumModal.classList.add("active"); 
+    });
+    closeAlbumBtn.addEventListener("click", () => { albumModal.classList.remove("active"); });
+    document.getElementById("endViewAlbumBtn").addEventListener("click", () => {
+        buildAlbum(); 
+        albumModal.classList.add("active");
+    });
+    document.getElementById("endPlayAgainBtn").addEventListener("click", () => {
+        resetGame();
+    });
+    closeDetailBtn.addEventListener("click", closeDetail);
+    prevDetailBtn.addEventListener("click", prevDetail);
+    nextDetailBtn.addEventListener("click", nextDetail);
+    document.querySelectorAll(".option-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+            if (gameCompletedFlag) return;
+            if (currentPlayingLevel === null) return;
+            if(waitingRetry) { setDialog("小真：请先完成当前弹窗中的二次判断"); return; }
+            handleChoice(btn.getAttribute("data-choice"));
+        });
+    });
+    loadAvatarFromLocal();
+</script>
+</body>
+</html>
